@@ -645,7 +645,11 @@ const tmdbVerifiedWords = new Set<string>();
 // ── Persistência: data/strip-words.txt (1 palavra por linha) ──
 import * as fs from 'fs';
 import * as path from 'path';
-const STRIP_FILE = path.join(process.cwd(), 'data', 'strip-words.txt');
+// No Vercel o filesystem do projeto é somente leitura (exceto /tmp).
+// Em serverless persistimos em /tmp (válido apenas durante a vida da instância "quente").
+const STRIP_FILE = process.env.VERCEL
+  ? path.join('/tmp', 'strip-words.txt')
+  : path.join(process.cwd(), 'data', 'strip-words.txt');
 
 // Carrega palavras persistidas no startup
 try {
