@@ -1,34 +1,48 @@
-const { spawnSync } = require('child_process');
 const fs = require('fs-extra');
 const path = require('path');
+
+// Raiz do projeto = diretório onde build.js está
+const PROJECT_ROOT = __dirname;
 
 function buildTypeScript() {
     console.log('Iniciando build do TypeScript...');
 
-    const fsExtra = require('fs-extra');
     const ts = require('typescript');
 
-    // 2. Garantir que a pasta dist existe
-    const distPath = path.join(__dirname, 'dist');
+    // Garantir que a pasta dist existe
+    const distPath = path.join(PROJECT_ROOT, 'dist');
     if (!fs.existsSync(distPath)) {
         fs.mkdirSync(distPath, { recursive: true });
         console.log(`Pasta criada: ${distPath}`);
     }
 
-    // 3. Compilar TypeScript
-    const configPath = ts.findConfigFile(process.cwd(), ts.sys.fileExists, 'tsconfig.json');
+    // Localizar tsconfig.json a partir da raiz do projeto (não do cwd)
+    const configPath = ts.findConfigFile(PROJECT_ROOT, ts.sys.fileExists, 'tsconfig.json');
 
     if (!configPath) {
-        console.error('tsconfig.json não encontrado');
+        console.error('tsconfig.json não encontrado em: ' + PROJECT_ROOT);
         process.exit(1);
     }
 
     const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
+    if (configFile.error) {
+        console.error('Erro ao ler tsconfig.json:', ts.flattenDiagnosticMessageText(configFile.error.messageText, '\n'));
+        process.exit(1);
+    }
+
+    // Usar PROJECT_ROOT como basePath para resolver caminhos do tsconfig
     const compilerOptions = ts.parseJsonConfigFileContent(
-        configFile.config, 
-        ts.sys, 
-        process.cwd()
+        configFile.config,
+        ts.sys,
+        PROJECT_ROOT
     );
+
+    if (compilerOptions.errors && compilerOptions.errors.length > 0) {
+        compilerOptions.errors.forEach(e => {
+            console.error(ts.flattenDiagnosticMessageText(e.messageText, '\n'));
+        });
+        process.exit(1);
+    }
 
     console.log('Compilando TypeScript...');
     const program = ts.createProgram(compilerOptions.fileNames, compilerOptions.options);
@@ -45,7 +59,6 @@ function buildTypeScript() {
         } else {
             console.log(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'));
         }
-        
         if (diagnostic.category === ts.DiagnosticCategory.Error) {
             hasErrors = true;
         }
@@ -61,7 +74,7 @@ function buildTypeScript() {
         process.exit(1);
     }
 
-    // 4. Verificar se os arquivos foram compilados
+    // Verificar arquivos gerados usando paths absolutos
     console.log('Verificando arquivos compilados...');
     const requiredFiles = [
         'dist/server.js',
@@ -71,12 +84,7 @@ function buildTypeScript() {
         'dist/stream/StaticResponseService.js'
     ];
 
-    let missingFiles = [];
-    for (const file of requiredFiles) {
-        if (!fs.existsSync(file)) {
-            missingFiles.push(file);
-        }
-    }
+    const missingFiles = requiredFiles.filter(f => !fs.existsSync(path.join(PROJECT_ROOT, f)));
 
     if (missingFiles.length > 0) {
         console.error('Arquivos compilados faltando:');
@@ -87,12 +95,12 @@ function buildTypeScript() {
 
     console.log('\nBuild concluído com sucesso!');
     console.log('Arquivos compilados disponíveis em: dist/');
-    
-    // Copiar pasta videos para dist/ (vídeos informativos: baixando, erro, etc)
-    const srcVideos = path.join(__dirname, 'src', 'videos');
-    const distVideos = path.join(__dirname, 'dist', 'videos');
+
+    // Copiar pasta videos para dist/
+    const srcVideos = path.join(PROJECT_ROOT, 'src', 'videos');
+    const distVideos = path.join(PROJECT_ROOT, 'dist', 'videos');
     if (fs.existsSync(srcVideos)) {
-        fsExtra.copySync(srcVideos, distVideos, { overwrite: true });
+        fs.copySync(srcVideos, distVideos, { overwrite: true });
         const videoFiles = fs.readdirSync(srcVideos).filter(f => f.endsWith('.mp4'));
         console.log(`Videos copiados para dist/videos/: ${videoFiles.length} arquivos`);
     } else {
