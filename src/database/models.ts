@@ -1,3 +1,7 @@
+ import { Sequelize, DataTypes, Model } from 'sequelize';
+  import dotenv from 'dotenv';
+  import pg from 'pg'; // força inclusão no bundle do Vercel
+
 import { Sequelize, DataTypes, Model } from 'sequelize';
 import dotenv from 'dotenv';
 
