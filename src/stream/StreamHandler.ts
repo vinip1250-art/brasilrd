@@ -203,6 +203,15 @@ export class StreamHandler {
 
   private async getStreamsFromDatabase(request: StreamRequest): Promise<DatabaseStreamResult> {
     const startTime = Date.now();
+    // Sem banco configurado (ex: Vercel sem DATABASE_URL) — retorna vazio sem erro
+    const hasDatabaseUrl = !!(
+      process.env.DATABASE_URL ||
+      process.env.POSTGRES_URL ||
+      process.env.DATABASE_PUBLIC_URL
+    );
+    if (!hasDatabaseUrl) {
+      return { success: true, streams: [], source: 'database', processingTime: Date.now() - startTime };
+    }
     try {
       const imdbId = this.extractImdbIdFromRequest(request);
       if (!imdbId) return { success: false, streams: [], source: 'database', processingTime: Date.now() - startTime };
