@@ -44,9 +44,17 @@ let hasDatabaseConnection = false;
 
 if (DATABASE_URL) {
   try {
+    // Importa pg explicitamente para evitar que o Sequelize tente require('pg')
+    // dinamicamente — o nft da Vercel não rastreia require dinâmico e o módulo
+    // não fica disponível no bundle. Passando via dialectModule, o nft rastreia
+    // este import estático e inclui o pg no bundle automaticamente.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const pgModule = require('pg');
+
     const sequelizeConfig: any = {
       logging: false,
       dialect: 'postgres',
+      dialectModule: pgModule,
       pool: { 
         max: 5,
         min: 1,
