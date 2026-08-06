@@ -203,13 +203,9 @@ export class StreamHandler {
 
   private async getStreamsFromDatabase(request: StreamRequest): Promise<DatabaseStreamResult> {
     const startTime = Date.now();
-    // Sem banco configurado (ex: Vercel sem DATABASE_URL) — retorna vazio sem erro
-    const hasDatabaseUrl = !!(
-      process.env.DATABASE_URL ||
-      process.env.POSTGRES_URL ||
-      process.env.DATABASE_PUBLIC_URL
-    );
-    if (!hasDatabaseUrl) {
+    // Sem banco configurado (ex: Vercel sem DATABASE_URL ou pg não disponível)
+    const { hasDatabaseConnection } = require('../database/models.js');
+    if (!hasDatabaseConnection) {
       return { success: true, streams: [], source: 'database', processingTime: Date.now() - startTime };
     }
     try {
