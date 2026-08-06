@@ -6,8 +6,12 @@ const PROJECT_ROOT = __dirname;
 
 function buildTypeScript() {
     console.log('Iniciando build do TypeScript...');
+    console.log('PROJECT_ROOT:', PROJECT_ROOT);
+    console.log('process.cwd():', process.cwd());
+    console.log('Node version:', process.version);
 
     const ts = require('typescript');
+    console.log('TypeScript version:', ts.version);
 
     // Garantir que a pasta dist existe
     const distPath = path.join(PROJECT_ROOT, 'dist');
@@ -23,6 +27,7 @@ function buildTypeScript() {
         console.error('tsconfig.json não encontrado em: ' + PROJECT_ROOT);
         process.exit(1);
     }
+    console.log('tsconfig.json encontrado em:', configPath);
 
     const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
     if (configFile.error) {
@@ -44,9 +49,15 @@ function buildTypeScript() {
         process.exit(1);
     }
 
+    console.log('outDir resolvido:', compilerOptions.options.outDir);
+    console.log('rootDir resolvido:', compilerOptions.options.rootDir);
+    console.log('arquivos fonte encontrados:', compilerOptions.fileNames.length);
+
     console.log('Compilando TypeScript...');
     const program = ts.createProgram(compilerOptions.fileNames, compilerOptions.options);
     const emitResult = program.emit();
+
+    console.log('emitSkipped:', emitResult.emitSkipped);
 
     const allDiagnostics = ts.getPreEmitDiagnostics(program).concat(emitResult.diagnostics);
 
@@ -76,6 +87,8 @@ function buildTypeScript() {
 
     // Verificar arquivos gerados usando paths absolutos
     console.log('Verificando arquivos compilados...');
+    console.log('Conteúdo de dist/:', fs.existsSync(distPath) ? fs.readdirSync(distPath) : 'pasta não existe');
+
     const requiredFiles = [
         'dist/server.js',
         'dist/stream/StreamHandler.js',
