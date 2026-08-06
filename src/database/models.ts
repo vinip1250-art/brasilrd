@@ -40,37 +40,47 @@ class NoopSequelize {
 // ────────────────────────────────────────────────────────────────────────────
 
 let sequelize: Sequelize;
+let hasDatabaseConnection = false;
 
 if (DATABASE_URL) {
-  const sequelizeConfig: any = {
-    logging: false,
-    dialect: 'postgres',
-    pool: { 
-      max: 5,
-      min: 1,
-      acquire: 30000,
-      idle: 10000,
-      evict: 10000
-    },
-    retry: { max: 3, timeout: 10000 }
-  };
-
-  if (DATABASE_URL.includes('postgres')) {
-    sequelizeConfig.dialectOptions = {
-      ssl: isRailwayExternal ? { require: true, rejectUnauthorized: false } : false
+  try {
+    const sequelizeConfig: any = {
+      logging: false,
+      dialect: 'postgres',
+      pool: { 
+        max: 5,
+        min: 1,
+        acquire: 30000,
+        idle: 10000,
+        evict: 10000
+      },
+      retry: { max: 3, timeout: 10000 }
     };
-  }
 
-  sequelize = new Sequelize(DATABASE_URL, sequelizeConfig);
+    if (DATABASE_URL.includes('postgres')) {
+      sequelizeConfig.dialectOptions = {
+        ssl: isRailwayExternal ? { require: true, rejectUnauthorized: false } : false
+      };
+    }
 
-  if (process.env.NODE_ENV === 'production') {
-    sequelize.authenticate()
-      .then(() => console.log('Conexao com PostgreSQL estabelecida'))
-      .catch(err => console.error('Erro na conexao PostgreSQL:', err.message));
+    sequelize = new Sequelize(DATABASE_URL, sequelizeConfig);
+    hasDatabaseConnection = true;
+
+    if (process.env.NODE_ENV === 'production') {
+      sequelize.authenticate()
+        .then(() => console.log('Conexao com PostgreSQL estabelecida'))
+        .catch(err => console.error('Erro na conexao PostgreSQL:', err.message));
+    }
+  } catch (err) {
+    // pg não disponível no bundle (ex: Vercel nft não rastreou o require dinâmico)
+    console.warn('[models] Falha ao carregar driver pg, operando sem banco:', (err as Error).message);
+    sequelize = new NoopSequelize() as unknown as Sequelize;
+    hasDatabaseConnection = false;
   }
 } else {
   // Sem DATABASE_URL: usa stub (Vercel ou ambiente sem banco)
   sequelize = new NoopSequelize() as unknown as Sequelize;
+  hasDatabaseConnection = false;
 }
 
 // ═══════════════════════════════════════
@@ -114,7 +124,7 @@ class Torrent extends Model<TorrentAttributes> implements TorrentAttributes {
 }
 
 // Só inicializa o modelo se houver banco real (evita erros com stub)
-if (DATABASE_URL) {
+if (DATABASE_URL && hasDatabaseConnection) {
   Torrent.init(
     {
       infoHash:   { type: DataTypes.STRING(64), primaryKey: true },
@@ -150,4 +160,4 @@ if (DATABASE_URL) {
   );
 }
 
-export { sequelize, Torrent };
+export { sequelize, Torrent, hasDatabaseConnection };
