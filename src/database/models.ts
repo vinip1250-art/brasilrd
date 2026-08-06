@@ -1,9 +1,8 @@
- import { Sequelize, DataTypes, Model } from 'sequelize';
-  import dotenv from 'dotenv';
-  import pg from 'pg'; // força inclusão no bundle do Vercel
-
 import { Sequelize, DataTypes, Model } from 'sequelize';
 import dotenv from 'dotenv';
+// Import direto do driver 'pg' para forçar sua inclusão no bundle do Vercel
+// (o Sequelize o carrega dinamicamente e o bundler serverless pode não detectá-lo sozinho).
+import 'pg';
 
 dotenv.config();
 
@@ -26,16 +25,17 @@ if (process.env.NODE_ENV !== 'production') {
 const isRailway = DATABASE_URL?.includes('railway.app') || DATABASE_URL?.includes('railway.internal');
 const isRailwayExternal = DATABASE_URL?.includes('railway.app') && !DATABASE_URL?.includes('railway.internal');
 
+const isServerless = !!process.env.VERCEL;
+
+// Em serverless, cada invocação pode rodar em uma instância isolada da função,
+// então o pool precisa ser pequeno para não esgotar as conexões do Postgres
+// quando várias invocações concorrentes acontecem ao mesmo tempo.
 const sequelizeConfig: any = {
   logging: false,
   dialect: 'postgres',
-  pool: { 
-    max: 5,
-    min: 1,
-    acquire: 30000,
-    idle: 10000,
-    evict: 10000
-  },
+  pool: isServerless
+    ? { max: 2, min: 0, acquire: 15000, idle: 5000, evict: 5000 }
+    : { max: 5, min: 1, acquire: 30000, idle: 10000, evict: 10000 },
   retry: { max: 3, timeout: 10000 }
 };
 
