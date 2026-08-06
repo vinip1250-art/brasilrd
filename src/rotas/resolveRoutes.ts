@@ -1,4 +1,3 @@
-import path from 'path';
 import { analisarMagnet } from '../magnet/magnetHelper.js';
 import { AutoMagnetService } from '../debrid/AutoMagnetService.js';
 import { TorboxService } from '../debrid/RealDebridService.js';
@@ -8,21 +7,36 @@ import { StaticResponseService, StaticResponse } from '../stream/StaticResponseS
 import { Logger } from '../utils/logger.js';
 import { getStatusMessage } from './statusHelpers.js';
 
-// Envia video MP4 de status diretamente (sem redirect) para o Stremio Web tocar
+// Envia video MP4 de status via redirect para URL relativa /videos/{filename}
+// Compatível com Vercel (serverless) e Railway/local (express.static serve o arquivo)
 function sendStatusVideo(res: any, resolveLogger: Logger, requestId: string, videoUrl: string) {
-  const filename = videoUrl.split('/').pop() || 'downloading_v2.mp4';
-  const filePath = path.join(__dirname, '..', 'videos', filename);
+  // videoUrl pode ser absoluta (https://...) ou relativa (/videos/...) — normaliza para relativa
+  let filename: string;
+  try {
+    // Se for URL absoluta, extrai o pathname
+    const url = new URL(videoUrl);
+    filename = url.pathname.split('/').pop() || 'downloading_v2.mp4';
+  } catch {
+    // URL relativa: pega o último segmento
+    filename = videoUrl.split('/').pop() || 'downloading_v2.mp4';
+  }
 
-  resolveLogger.info('🎬 ENVIANDO vídeo de status DIRETO (sendFile)', {
+  // Garante extensão .mp4
+  if (!filename.endsWith('.mp4')) {
+    filename = 'downloading_v2.mp4';
+  }
+
+  const redirectUrl = `/videos/${filename}`;
+
+  resolveLogger.info('🎬 REDIRECIONANDO para vídeo de status', {
     requestId,
     filename,
+    redirectUrl,
   });
 
-  res.setHeader('Content-Type', 'video/mp4');
-  res.setHeader('Accept-Ranges', 'bytes');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-  res.sendFile(filePath);
+  res.redirect(302, redirectUrl);
 }
 
 const logger = new Logger('ResolveRoutes');
